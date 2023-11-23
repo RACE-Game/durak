@@ -1,0 +1,22 @@
+{:paths ["src"]
+
+ :deps
+ {org.clojure/clojurescript           {:mvn/version "1.11.60"}
+  org.clojure/core.async              {:mvn/version "1.6.673"}
+  thheller/shadow-cljs                {:mvn/version "2.26.2"}
+  re-frame/re-frame                   {:mvn/version "1.4.0"}
+  io.github.doglooksgood/borsh-clj    {:mvn/version "0.1.16"}
+  day8.re-frame/async-flow-fx         {:mvn/version "0.3.0"}
+  cljs-bean/cljs-bean                 {:mvn/version "1.9.0"}
+  funcool/promesa                     {:mvn/version "11.0.678"}
+  camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
+  metosin/reitit-frontend             {:mvn/version "0.5.15"}
+  binaryage/devtools                  {:mvn/version "1.0.7"}}
+
+ :aliases
+ {:cljs
+  {:jvm-opts ["--add-opens" "java.base/jdk.internal.misc=ALL-UNNAMED"
+              "-XX:-OmitStackTraceInFastThrow" "-XX:+TieredCompilation"
+              "-XX:TieredStopAtLevel=1"
+              "-Dio.netty.tryReflectionSetAccessible=true"
+              "-Dorg.slf4j.simpleLogger.defaultLogLevel=debug" "-Xmx1G"]}}}

@@ -1,0 +1,8 @@
+{:deps     {:aliases [:cljs]}
+ :builds   {:app {:devtools   {:after-load durak.main/after-load},
+                  :modules    {:app {:init-fn durak.main/-main}},
+                  :output-dir "resources/public/js",
+                  :target     :browser
+                  :release    {:output-dir       "dist/js"
+                               :compiler-options {:source-map false}}}}
+ :dev-http {8000 "resources/public"}}

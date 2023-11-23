@@ -1,0 +1,13 @@
+{
+  "title": "3 Players",
+  "bundle": "../durak/dist/durak.wasm",
+  "token": "FACADE_USDC",
+  "maxPlayers": 3,
+  "entryType": {
+    "cash": {
+      "minDeposit": 1000000,
+      "maxDeposit": 1000000
+    }
+  },
+  "data": [64,66,15,0,0,0,0,0,3]
+}

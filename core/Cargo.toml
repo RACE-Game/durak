@@ -1,0 +1,22 @@
+[package]
+name = "durak"
+version = "0.1.0"
+rust-version = "1.65.0"
+edition = "2021"
+
+[profile.release]
+lto = true
+opt-level = 3
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+race-api = "0.2.5"
+race-proc-macro = "0.2.5"
+borsh = "0.9.3"
+thiserror = "1.0.35"
+
+[dev-dependencies]
+anyhow = "1.0.72"
+race-test = "0.2.5"

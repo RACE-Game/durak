@@ -1,0 +1,8 @@
+node_modules
+target
+resources/public/js
+resources/public/css
+.shadow-cljs
+.cpcache
+.nrepl-port
+dist
