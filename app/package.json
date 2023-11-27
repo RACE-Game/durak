@@ -7,10 +7,10 @@
     "build": "run-s *:build"
   },
   "dependencies": {
-    "@race-foundation/borsh": "^0.2.5",
-    "@race-foundation/sdk-core": "../../race/js/sdk-core",
-    "@race-foundation/sdk-facade": "../../race/js/sdk-facade",
-    "@race-foundation/sdk-solana": "^0.2.5",
+    "@race-foundation/borsh": "^0.2.6",
+    "@race-foundation/sdk-core": "0.2.6",
+    "@race-foundation/sdk-facade": "0.2.6",
+    "@race-foundation/sdk-solana": "^0.2.6",
     "@solana/spl-token": "^0.3.9",
     "@solana/wallet-adapter-phantom": "^0.9.24",
     "@solana/wallet-adapter-solflare": "^0.6.28",

@@ -12,11 +12,11 @@ opt-level = 3
 crate-type = ["cdylib"]
 
 [dependencies]
-race-api = "0.2.5"
-race-proc-macro = "0.2.5"
+race-api = "0.2.6"
+race-proc-macro = "0.2.6"
 borsh = "0.9.3"
 thiserror = "1.0.35"
 
 [dev-dependencies]
 anyhow = "1.0.72"
-race-test = "0.2.5"
+race-test = "0.2.6"
