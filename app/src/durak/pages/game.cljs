@@ -62,7 +62,7 @@
   (let [{:keys [nick pfp]} profile
         {:keys [role]} player
         nft @(re-frame/subscribe [::helper/nft-by-addr pfp])
-        tag-css "absolute bottom-8 left-1/2 -translate-x-1/2 text-xs font-mono uppercase px-3 rounded-md "]
+        tag-css "absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-mono uppercase px-3 rounded-md "]
     [:div {:class "flex flex-col items-center w-36 text-2xl text-white relative"}
      [:div {:class "avatar"}
       [:div {:class (str "w-24 rounded-full bg-base-100 "
@@ -84,7 +84,7 @@
        :role/defender [:span {:class (str tag-css "bg-secondary text-secondary-content")} "DEF"]
        :role/co-attacker [:span {:class (str tag-css "bg-accent text-accent-content")} "COATT"]
        nil)
-     [:div {:class "text-ellipsis w-40 overflow-hidden whitespace-nowrap text-neutral"} nick]]))
+     [:div {:class "text-ellipsis text-xs w-40 overflow-hidden whitespace-nowrap text-neutral"} nick]]))
 
 (def kind->value {"2" 2, "3" 3, "4" 4, "5" 5, "6" 6, "7" 7, "8" 8, "9" 9, "t" 10, "j" 11, "q" 12, "k" 13, "a" 14})
 (defn- sort-card [c]
@@ -115,14 +115,14 @@
                                        (= (types/kind (first sels)) (types/kind card)))))
         all-attacks-closed  (every? (comp #{:attack/closed} types/attack-type) attacks)]
     [:div {:class "p-8 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
-     [:div {:class "h-24 flex justify-center items-center"}
+     [:div {:class "h-16 flex justify-center items-center"}
       (when (seq sels)
         [:button {:class    "btn btn-accent"
                   :on-click (fn []
                               (re-frame/dispatch [::game/attack sels])
                               (clear-ux))}
          "Attack"])]
-     [:div {:class "h-64 flex justify-center items-center gap-2"}
+     [:div {:class "h-44 flex justify-center items-center gap-2"}
       (for [[c card-idx] cards
             :when        c
             :let         [card (types/->Card card-idx c)
@@ -180,14 +180,14 @@
                                        (= (types/kind (first sels)) (types/kind card)))))
         all-attacks-closed  (every? (comp #{:attack/closed} types/attack-type) attacks)]
     [:div {:class "p-8 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
-     [:div {:class "h-24 flex justify-center items-center"}
+     [:div {:class "h-26 flex justify-center items-center"}
       (when (seq sels)
         [:button {:class    "btn btn-accent"
                   :on-click (fn []
                               (re-frame/dispatch [::game/co-attack sels])
                               (clear-ux))}
          "Attack"])]
-     [:div {:class "h-64 flex justify-center items-center gap-2"}
+     [:div {:class "h-44 flex justify-center items-center gap-2"}
       (for [[c card-idx] cards
             :when        c
             :let         [card (types/->Card card-idx c)
@@ -239,14 +239,14 @@
         all-attacks-closed      (every? (comp #{:attack/closed} types/attack-type) attacks)
         no-confirming-attack    (every? (comp #{:attack/open :attack/closed} types/attack-type) attacks)]
     [:div {:class "p-8 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
-     [:div {:class "h-24 flex justify-center items-center"}
+     [:div {:class "h-20 flex justify-center items-center"}
       (when can-forward
         [:button {:class    "btn btn-accent"
                   :on-click (fn []
                               (re-frame/dispatch [::game/forward sel])
                               (clear-ux))}
          "Forward"])]
-     [:div {:class "h-64 flex justify-center items-center gap-2"}
+     [:div {:class "h-44 flex justify-center items-center gap-2"}
       (for [[c card-idx] cards
             :let         [card (types/->Card card-idx c)
                           selected? (= sel card)]]
@@ -364,12 +364,12 @@
 (defn render-deck [{:keys [deck-offset trump]}]
   (let [n (- deck-len deck-offset 1)]
     [:div {:class "absolute top-1/2 left-8"}
-     [:div {:class "absolute -top-8 left-0"}
+     [:div {:class "absolute -top-16 left-0"}
       (when-let [v (:value trump)]
         [card/card v])]
-     [:div {:class "absolute top-8 left-8"}
+     [:div {:class "absolute top-0 left-8"}
       [card/deck n 6]]
-     [:div {:class "absolute w-16 text-center -top-2 left-32 z-[99] bg-base-200 rounded-full"}
+     [:div {:class "absolute w-16 text-center -top-10 left-32 z-[99] bg-base-200 rounded-full"}
       [:span {:class "countdown font-mono text-3xl"}
        [:span {:style {"--value" n}}]]]]))
 

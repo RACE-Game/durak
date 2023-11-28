@@ -1,6 +1,6 @@
 {
   "name": "RACE Durak",
-  "symbol": "RDT01",
+  "symbol": "RDT02",
   "description": "Race Durak Test",
   "seller_fee_basis_points": 0,
   "image": "https://arweave.net/fkanqLM3Cy9g-gFvv8pMu9zrYyYIKeMckWPz8kPD7UI",
@@ -13,7 +13,7 @@
         "type": "image/png"
       },
       {
-        "uri": "https://arweave.net/Vzhacwx76-EVLrlyGFs0sS-TU46TdBUtN2ruYgvdYHQ",
+        "uri": "https://arweave.net/2qtY28sdrV9dHArd_UCOYE3QQ1ubsJxcIe5f4Dd4w2o",
         "type": "application/wasm"
       }
     ],
