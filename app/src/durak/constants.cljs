@@ -2,11 +2,9 @@
 
 (if goog.DEBUG
   (do
-    (def facade-auto-create-profile true)
     (def chain :chain/facade)
     (def wallet-key :facade))
   (do
-    (def facade-auto-create-profile false)
     (def chain :chain/solana-mainnet)
     (def wallet-key :solana-phantom)))
 

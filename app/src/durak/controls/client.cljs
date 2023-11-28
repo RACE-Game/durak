@@ -64,7 +64,8 @@
   [{:keys [^js app-client amount]}]
   (js/console.log "Join game, amount:" amount)
   (a/go
-    (let [join-opts #js {:amount amount}]
+    (let [join-opts #js {:amount amount
+                         :createProfileIfNeeded true}]
       (<p! (.join app-client join-opts)))))
 
 (re-frame/reg-fx :join join)

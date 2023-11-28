@@ -62,7 +62,7 @@
   (let [{:keys [nick pfp]} profile
         {:keys [role]} player
         nft @(re-frame/subscribe [::helper/nft-by-addr pfp])
-        tag-css "absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-mono uppercase px-3 rounded-md "]
+        tag-css "absolute bottom-5 left-1/2 -translate-x-1/2 text-xs font-mono uppercase px-3 rounded-md "]
     [:div {:class "flex flex-col items-center w-36 text-2xl text-white relative"}
      [:div {:class "avatar"}
       [:div {:class (str "w-24 rounded-full bg-base-100 "
@@ -84,7 +84,7 @@
        :role/defender [:span {:class (str tag-css "bg-secondary text-secondary-content")} "DEF"]
        :role/co-attacker [:span {:class (str tag-css "bg-accent text-accent-content")} "COATT"]
        nil)
-     [:div {:class "text-ellipsis text-xs w-40 overflow-hidden whitespace-nowrap text-neutral"} nick]]))
+     [:div {:class "mt-1 text-center text-ellipsis text-xs w-40 overflow-hidden whitespace-nowrap text-neutral"} nick]]))
 
 (def kind->value {"2" 2, "3" 3, "4" 4, "5" 5, "6" 6, "7" 7, "8" 8, "9" 9, "t" 10, "j" 11, "q" 12, "k" 13, "a" 14})
 (defn- sort-card [c]
@@ -342,6 +342,7 @@
   (let [{:keys [addr card-idxs]} player]
     [:div {:class (str "absolute  flex flex-col gap-4 items-center "
                        (case rel-pos
+                         0 "bottom-8 left-1/2 -translate-x-1/2"
                          1 "top-8 left-8"
                          2 "top-8 left-1/2 -translate-x-1/2"
                          3 "top-8 right-8"))}
@@ -415,7 +416,9 @@
             :let [player-action (first (filter #(= (:addr player) (:addr %)) player-action))]]
         ^{:key (str rel-pos (:addr player))}
         [render-player rel-pos player profiles player-action])
-      [render-action-panel state curr-player curr-profile curr-player-action]
+      (if (= (:addr curr-player) addr)
+        [render-action-panel state curr-player curr-profile curr-player-action]
+        [render-player 0 curr-player profiles curr-player-action])
       [render-attack-list attacks trump (:role curr-player)]
       [render-countdown state]
       [render-deck {:deck-offset deck-offset :trump trump}]

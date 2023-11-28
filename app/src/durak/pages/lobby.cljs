@@ -136,11 +136,11 @@
            (for [game @games]
              ^{:key (.-addr game)}
              [game-entry game (= (.-addr game) @sel-game)]))
-          [:p {:class "text-sm text-center text-neutral-content"}
+          [:p {:class "text-sm text-center text-neutral"}
            [:span "* Built with "]
-           [:a {:class "text-primary" :href "https://solana.com/" :target "_blank"} "Solana"]
+           [:a {:class "text-info" :href "https://solana.com/" :target "_blank"} "Solana"]
            [:span " and "]
-           [:a {:class "text-secondary" :href "https://racepoker.app/" :target "_blank"} "Race Protocol"]]
+           [:a {:class "text-warning" :href "https://github.com/RACE-Game/race" :target "_blank"} "Race Protocol"]]
           [:div {:class "card-actions justify-end"}
            (if @sel-game
              [:button {:class "btn btn-accent btn-outline px-12"
