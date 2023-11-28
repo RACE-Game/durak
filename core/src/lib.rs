@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use error::Error;
-use misc::{Action, Attack, Card, Player, Stage};
+use misc::{Action, Attack, Card, Player, Stage, Display};
 use race_api::prelude::*;
 use race_proc_macro::game_handler;
 
@@ -31,6 +31,8 @@ pub struct Durak {
     pub trump: Option<Card>,
     pub bet_amount: u64,
     pub timeout: u64,
+    pub attack_space: usize,
+    pub displays: Vec<Display>,
 }
 
 fn get_deck() -> RandomSpec {
@@ -89,6 +91,7 @@ impl GameHandler for Durak {
     }
 
     fn handle_event(&mut self, effect: &mut Effect, event: Event) -> HandleResult<()> {
+        self.displays.clear();
         match event {
             Event::Custom { sender, raw } => {
                 let action = Action::try_parse(&raw)?;
@@ -146,6 +149,11 @@ impl GameHandler for Durak {
                         .players
                         .get(&player_addr)
                         .ok_or(HandleError::InvalidPlayer)?;
+                    if p.is_attacker() {
+                        self.displays.push(Display::PlayerAction { addr: player_addr, action: Action::Beated });
+                    } else {
+                        self.displays.push(Display::PlayerAction { addr: player_addr, action: Action::Take });
+                    }
                     self.end_round(!p.is_attacker(), effect)?;
                 } else if self.stage == Stage::EndOfRound {
                     self.end_round(true, effect)?;

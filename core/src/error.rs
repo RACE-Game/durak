@@ -44,6 +44,8 @@ pub enum Error {
     CantForward,
     #[error("InvalidForwardCard")]
     InvalidForwardCard,
+    #[error("No attack space, space: {0}, attacks: {1}")]
+    NoAttackSpace(usize, usize),
 }
 
 impl From<Error> for race_api::error::HandleError {

@@ -56,7 +56,7 @@
                  ::wallet wallet)
       :dispatch-n (cond-> [[::helper/fetch-profile addr]]
                     c/facade-auto-create-profile
-                    (conj [::helper/create-profile {:nick addr :pfp ""}]))})))
+                    (conj [::helper/create-profile {:nick addr :pfp "nft01"}]))})))
 
 (re-frame/reg-event-db
  ::disconnect

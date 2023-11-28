@@ -88,6 +88,25 @@
 
 (m/defvariants AttackItem [ConfirmOpen Open ConfirmClose Closed])
 
+(defprotocol IDisplay
+  (display-type [_]))
+
+(m/defstruct DealCards
+  [^:string addr
+   ^{:vec :usize} card-idxs])
+
+(m/defstruct PlayerAction
+  [^:string addr
+   ^{:enum Action} action])
+
+(extend-protocol IDisplay
+  DealCards
+  (display-type [_] :display/deal-cards)
+  PlayerAction
+  (display-type [_] :display/player-action))
+
+(m/defvariants Display [DealCards PlayerAction])
+
 (m/defstruct DurakState
   [^:usize random-id
    ^:usize deck-offset
@@ -98,4 +117,6 @@
    ^{:vec {:enum AttackItem}} attacks
    ^{:option {:struct Card}} trump
    ^:u64 bet-amount
-   ^:u64 timeout])
+   ^:u64 timeout
+   ^:usize attack-space
+   ^{:vec {:enum Display}} displays])

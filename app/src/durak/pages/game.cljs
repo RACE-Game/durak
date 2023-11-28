@@ -12,6 +12,10 @@
 
 (def deck-len 36)
 
+(defn- clear-ux []
+  (re-frame/dispatch [::ux/unset ::sels])
+  (re-frame/dispatch [::ux/unset ::sel]))
+
 (defn enter-game-page [params]
   (let [addr (get-in params [:path :addr])]
     (re-frame/dispatch [::wallet/connect])
@@ -54,7 +58,7 @@
     [:i.fa-sharp.fa-regular.fa-bars {:class "mr-2"}] "durak.sol"]
    [:div {:class "uppercase"} (name stage)]])
 
-(defn render-avatar [profile & [player]]
+(defn render-avatar [profile & [player player-action]]
   (let [{:keys [nick pfp]} profile
         {:keys [role]} player
         nft @(re-frame/subscribe [::helper/nft-by-addr pfp])
@@ -68,22 +72,29 @@
                            :role/co-attacker "ring ring-accent"
                            ""))}
        [:img {:src (:image nft)}]]]
+     [:div {:class "absolute right-full top-0 w-32"}
+      (when player-action
+        (case (types/action-type (:action player-action))
+          :action/beated [:div {:class "chat chat-end"} [:div {:class "chat-bubble chat-bubble-primary"} "It's beated"]]
+          :action/take [:div {:class "chat chat-end"} [:div {:class "chat-bubble chat-bubble-secondary"} "I'm taking"]]
+          :action/forward [:div {:class "chat chat-end"} [:div {:class "chat-bubble chat-bubble-accent"} "I'm forwarding"]]
+          nil))]
      (case role
        :role/attacker [:div {:class (str tag-css "bg-primary text-primary-content")} "ATT"]
        :role/defender [:span {:class (str tag-css "bg-secondary text-secondary-content")} "DEF"]
        :role/co-attacker [:span {:class (str tag-css "bg-accent text-accent-content")} "COATT"]
        nil)
-     [:div nick]]))
+     [:div {:class "text-ellipsis w-40 overflow-hidden whitespace-nowrap text-neutral"} nick]]))
 
 (def kind->value {"2" 2, "3" 3, "4" 4, "5" 5, "6" 6, "7" 7, "8" 8, "9" 9, "t" 10, "j" 11, "q" 12, "k" 13, "a" 14})
 (defn- sort-card [c]
   (when c
     [(subs c 0 1) (kind->value (subs c 1 2))]))
 
-(defn render-action-panel-attacker [state player profile]
+(defn render-action-panel-attacker [state player profile player-action]
   (let [decryption          @(re-frame/subscribe [::client/decryption (:random-id state)])
         sels                @(re-frame/subscribe [::ux/get ::sels #{}])
-        {:keys [attacks]}   state
+        {:keys [attacks attack-space]}   state
         {:keys [card-idxs]} player
         cards               (->> (map #(vector (get decryption %) %) card-idxs)
                                  (sort-by (comp sort-card first)))
@@ -96,7 +107,8 @@
                                          attacks)
                                  (into #{}))
         card-valid?         (fn [card]
-                              (and (< (+ (count attacks) (count sels)) 6)
+                              (and (< (count sels) attack-space)
+                                   (< (+ (count attacks) (count sels)) 6)
                                    (or (empty? attacks)
                                        (get attack-kinds (types/kind card)))
                                    (or (empty? sels)
@@ -108,7 +120,7 @@
         [:button {:class    "btn btn-accent"
                   :on-click (fn []
                               (re-frame/dispatch [::game/attack sels])
-                              (re-frame/dispatch [::ux/unset ::sels]))}
+                              (clear-ux))}
          "Attack"])]
      [:div {:class "h-64 flex justify-center items-center gap-2"}
       (for [[c card-idx] cards
@@ -137,17 +149,18 @@
                      :else
                      #(re-frame/dispatch [::ux/set ::sels (conj sels card)]))])]
      [:div {:class "h-24 flex justify-center items-center gap-4"}
-      [render-avatar profile player]
-      (when (and (seq attacks)
-                 all-attacks-closed)
-        [:button {:class    "btn btn-primary text-2xl px-16"
-                  :on-click #(re-frame/dispatch [::game/beated])}
-         "Beated"])]]))
+      [render-avatar profile player player-action]
+      [:div {:class "w-32"}
+       (when (and (seq attacks)
+                  all-attacks-closed)
+         [:button {:class    "btn btn-primary text-2xl px-16"
+                   :on-click #(re-frame/dispatch [::game/beated])}
+          "Beated"])]]]))
 
-(defn render-action-panel-co-attacker [state player profile]
+(defn render-action-panel-co-attacker [state player profile player-action]
   (let [decryption          @(re-frame/subscribe [::client/decryption (:random-id state)])
         sels                @(re-frame/subscribe [::ux/get ::sels #{}])
-        {:keys [attacks]}   state
+        {:keys [attacks attack-space]}   state
         {:keys [card-idxs]} player
         cards               (->> (map #(vector (get decryption %) %) card-idxs)
                                  (sort-by (comp sort-card first)))
@@ -160,7 +173,7 @@
                                          attacks)
                                  (into #{}))
         card-valid?         (fn [card]
-                              (and (< (+ (count attacks) (count sels)) 6)
+                              (and (< (count sels) attack-space)
                                    (or (empty? attacks)
                                        (get attack-kinds (types/kind card)))
                                    (or (empty? sels)
@@ -171,8 +184,8 @@
       (when (seq sels)
         [:button {:class    "btn btn-accent"
                   :on-click (fn []
-                              (re-frame/dispatch [::game/attack sels])
-                              (re-frame/dispatch [::ux/unset ::sels]))}
+                              (re-frame/dispatch [::game/co-attack sels])
+                              (clear-ux))}
          "Attack"])]
      [:div {:class "h-64 flex justify-center items-center gap-2"}
       (for [[c card-idx] cards
@@ -201,14 +214,17 @@
                      :else
                      #(re-frame/dispatch [::ux/set ::sels (conj sels card)]))])]
      [:div {:class "h-24 flex justify-center items-center gap-4"}
-      [render-avatar profile player]
-      (when (and (seq attacks)
-                 all-attacks-closed)
-        [:button {:class    "btn btn-primary text-2xl px-16"
-                  :on-click #(re-frame/dispatch [::game/beated])}
-         "Beated"])]]))
+      [render-avatar profile player player-action]
+      [:div {:class "w-32"}
+       (when (and (seq attacks)
+                  all-attacks-closed)
+         [:button {:class    "btn btn-primary text-2xl px-16"
+                   :on-click #(do
+                                (re-frame/dispatch [::game/beated])
+                                (clear-ux))}
+          "Beated"])]]]))
 
-(defn render-action-panel-defender [state player profile]
+(defn render-action-panel-defender [state player profile player-action]
   (let [decryption              @(re-frame/subscribe [::client/decryption (:random-id state)])
         sel                     @(re-frame/subscribe [::ux/get ::sel])
         {:keys [attacks stage]} state
@@ -228,7 +244,7 @@
         [:button {:class    "btn btn-accent"
                   :on-click (fn []
                               (re-frame/dispatch [::game/forward sel])
-                              (re-frame/dispatch [::ux/unset ::sels]))}
+                              (clear-ux))}
          "Forward"])]
      [:div {:class "h-64 flex justify-center items-center gap-2"}
       (for [[c card-idx] cards
@@ -255,21 +271,22 @@
                      :else
                      #(re-frame/dispatch [::ux/set ::sel card]))])]
      [:div {:class "h-24 flex justify-center items-center gap-4"}
-      [render-avatar profile player]
-      (when (and (not end-of-round)
-                 (seq attacks)
-                 no-confirming-attack
-                 (not all-attacks-closed))
-        [:button {:class    "btn btn-secondary text-2xl px-16"
-                  :on-click #(do (re-frame/dispatch [::game/take])
-                                 (re-frame/dispatch [::ux/unset ::sel-idxs]))}
-         "Take"])]]))
+      [render-avatar profile player player-action]
+      [:div {:class "w-32"}
+       (when (and (not end-of-round)
+                  (seq attacks)
+                  no-confirming-attack
+                  (not all-attacks-closed))
+         [:button {:class    "btn btn-secondary text-2xl px-16"
+                   :on-click #(do (re-frame/dispatch [::game/take])
+                                  (clear-ux))}
+          "Take"])]]]))
 
-(defn render-action-panel [state player profiles]
+(defn render-action-panel [state player profiles player-action]
   (case (:role player)
-    :role/attacker [render-action-panel-attacker state player profiles]
-    :role/defender [render-action-panel-defender state player profiles]
-    :role/co-attacker [render-action-panel-co-attacker state player profiles]
+    :role/attacker [render-action-panel-attacker state player profiles player-action]
+    :role/defender [render-action-panel-defender state player profiles player-action]
+    :role/co-attacker [render-action-panel-co-attacker state player profiles player-action]
     nil))
 
 (defn- cover? [card target trump]
@@ -300,7 +317,7 @@
                    "brightness-75 hover:brightness-100 transition-all active:scale-[90%%%]")
             :on-click (fn []
                         (re-frame/dispatch [::game/defend sel i])
-                        (re-frame/dispatch [::ux/unset ::sel]))])
+                        (clear-ux))])
          [card/card (:value (:open attack))]))
 
      :attack/confirm-close
@@ -321,14 +338,14 @@
      ^{:key i}
      [render-attack i attack trump role])])
 
-(defn render-player [rel-pos player profiles]
+(defn render-player [rel-pos player profiles player-action]
   (let [{:keys [addr card-idxs]} player]
     [:div {:class (str "absolute  flex flex-col gap-4 items-center "
                        (case rel-pos
                          1 "top-8 left-8"
                          2 "top-8 left-1/2 -translate-x-1/2"
                          3 "top-8 right-8"))}
-     [render-avatar (get profiles addr) player]
+     [render-avatar (get profiles addr) player player-action]
      [card/deck (count card-idxs) 18]]))
 
 (defn render-winner-popup [state profiles]
@@ -345,12 +362,16 @@
           [render-avatar profile]]]))))
 
 (defn render-deck [{:keys [deck-offset trump]}]
-  [:div {:class "absolute top-1/2 left-8"}
-   [:div {:class "absolute -top-8 left-0"}
-    (when-let [v (:value trump)]
-      [card/card v])]
-   [:div {:class "absolute top-8 left-8"}
-    [card/deck (- deck-len deck-offset 1) 6]]])
+  (let [n (- deck-len deck-offset 1)]
+    [:div {:class "absolute top-1/2 left-8"}
+     [:div {:class "absolute -top-8 left-0"}
+      (when-let [v (:value trump)]
+        [card/card v])]
+     [:div {:class "absolute top-8 left-8"}
+      [card/deck n 6]]
+     [:div {:class "absolute w-16 text-center -top-2 left-32 z-[99] bg-base-200 rounded-full"}
+      [:span {:class "countdown font-mono text-3xl"}
+       [:span {:style {"--value" n}}]]]]))
 
 (defn render-waiting-page [{:keys [profiles addr state]}]
   (let [{:keys [players num-of-players]} state]
@@ -372,7 +393,7 @@
                    :on-click on-join}
           "Join the game with 1 USDC"])]]]))
 
-(defn render-playing-page [{:keys [profiles addr state]}]
+(defn render-playing-page [{:keys [profiles addr state displays]}]
   (let [{:keys [stage num-of-players players deck-offset trump attacks]} state
         curr-position  (get-in players [addr :position] 0)
         sorted-players (sort-players-by-relative-position curr-position players)
@@ -382,14 +403,19 @@
                          3 [1 3]
                          4 [1 2 3])
         curr-player    (first sorted-players)
-        curr-profile   (get profiles (:addr curr-player))]
+        curr-profile   (get profiles (:addr curr-player))
+        display-map    (->> (vals displays)
+                            (group-by types/display-type))
+        {:display/keys [deal-cards player-action]} display-map
+        curr-player-action (first (filter #(= (:addr curr-player) (:addr %)) player-action))]
     [:div {:class "min-h-screen w-full bg-cover bg-center bg-base-300 flex flex-col items-stretch"}
      [playing-header stage]
      [:div {:class "flex-1 relative"}
-      (for [[rel-pos player] (map vector rel-pos-list rest-players)]
+      (for [[rel-pos player] (map vector rel-pos-list rest-players)
+            :let [player-action (first (filter #(= (:addr player) (:addr %)) player-action))]]
         ^{:key (str rel-pos (:addr player))}
-        [render-player rel-pos player profiles])
-      [render-action-panel state curr-player curr-profile]
+        [render-player rel-pos player profiles player-action])
+      [render-action-panel state curr-player curr-profile curr-player-action]
       [render-attack-list attacks trump (:role curr-player)]
       [render-countdown state]
       [render-deck {:deck-offset deck-offset :trump trump}]
@@ -398,11 +424,13 @@
 (defn game-page []
   (let [addr     (re-frame/subscribe [::wallet/addr])
         profiles (re-frame/subscribe [::helper/profiles-map])
-        state    (re-frame/subscribe [::game/state])]
+        state    (re-frame/subscribe [::game/state])
+        displays (re-frame/subscribe [::game/displays])]
     (fn []
       (let [state    @state
             profiles @profiles
-            addr     @addr]
+            addr     @addr
+            displays @displays]
         (if (or (nil? state) (= :stage/waiting (:stage state)))
           [render-waiting-page {:addr addr, :profiles profiles, :state state}]
-          [render-playing-page {:addr addr, :profiles profiles, :state state}])))))
+          [render-playing-page {:addr addr, :profiles profiles, :state state, :displays displays}])))))

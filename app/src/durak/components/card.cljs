@@ -2,11 +2,11 @@
   (:require [goog.string :refer [format]]))
 
 (defn card-loading [c]
-  [:div {:class "w-[6rem] h-[9rem] rounded-lg"}
+  [:div {:class "w-[5rem] h-[7.5rem] rounded-lg"}
    [:div {:class "loading loading-spinner loading-lg"}]])
 
 (defn card-back []
-  [:div {:class "w-[6rem] h-[9rem] rounded-lg"
+  [:div {:class "w-[5rem] h-[7.5rem] rounded-lg"
          :style {:background-image    "url('/assets/card.png')"
                  :background-size     "1300% 500%",
                  :background-position "-200% -400%"}}])
@@ -55,8 +55,8 @@
           suit     (subs c 0 1)
           h-offset (parse-kind-offset kind)
           w-offset (parse-suit-offset suit)]
-      [:div {:class "w-[6rem] h-[9rem] relative"}
-       [:div {:class    (str "absolute top-0 left-0 flex justify-center items-center w-[6rem] h-[9rem] " css)
+      [:div {:class "w-[5rem] h-[7.5rem] relative"}
+       [:div {:class    (str "absolute top-0 left-0 flex justify-center items-center w-[5rem] h-[7.5rem] transition-all " css)
               :on-click on-click
               :style    {:background-image    "url('/assets/card.png')"
                          :background-size     "1300% 500%",

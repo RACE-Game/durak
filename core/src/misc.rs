@@ -23,6 +23,12 @@ fn kind_str_to_u8(k: &str) -> u8 {
     }
 }
 
+#[derive(BorshSerialize, BorshDeserialize)]
+pub enum Display {
+    DealCadrs { addr: String, card_idxs: Vec<usize> },
+    PlayerAction { addr: String, action: Action },
+}
+
 #[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub struct Card {
     pub idx: usize,
@@ -69,7 +75,7 @@ pub enum Stage {
     EndOfGame,
 }
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub enum Action {
     Attack {
         cards: Vec<Card>,
@@ -163,6 +169,10 @@ impl Attack {
         matches!(self, Self::Open { .. } | Self::Closed { .. })
     }
 
+    pub fn is_open_or_confirm_open(&self) -> bool {
+        matches!(self, Self::Open { .. } | Self::ConfirmOpen { .. })
+    }
+
     pub fn confirm_open(&mut self, value: String) -> HandleResult<()> {
         match self {
             Attack::ConfirmOpen { open_idx } => {
@@ -249,6 +259,8 @@ impl Durak {
         self.trump = None;
         self.num_of_finished = 0;
         self.timeout = 0;
+        self.attack_space = 0;
+        self.displays.clear();
         effect.allow_exit(true);
     }
 
@@ -572,10 +584,22 @@ impl Durak {
         Ok(self.trump.as_ref().ok_or(Error::NoTrump)?)
     }
 
+    pub fn update_attack_space(&mut self) -> HandleResult<()> {
+        let def = self.get_player_by_role(Role::Defender)?;
+        self.attack_space = def.card_idxs().len()
+            - self
+                .attacks
+                .iter()
+                .filter(|a| a.is_open_or_confirm_open())
+                .count();
+        Ok(())
+    }
+
     /// Ask the players to act
     pub fn ask_to_act(&mut self, effect: &mut Effect) -> HandleResult<()> {
         self.stage = Stage::Acting;
         self.set_timeout_or_end_round(effect)?;
+        self.update_attack_space()?;
         Ok(())
     }
 
@@ -601,6 +625,7 @@ impl Durak {
                 _ => (),
             }
         }
+        self.update_attack_space()?;
         self.update_escaped_players()?;
         self.maybe_end_game(effect)?;
         self.set_timeout_or_end_round(effect)?;
@@ -654,8 +679,13 @@ impl Durak {
         sender: String,
         action: Action,
     ) -> HandleResult<()> {
+        let act = action.clone();
         match action {
             Action::Attack { cards } => {
+                let l = cards.len();
+                if self.attack_space < l {
+                    Err(Error::NoAttackSpace(self.attack_space, l))?
+                }
                 if !self.can_attack()? {
                     Err(Error::CantAttack)?
                 }
@@ -676,8 +706,16 @@ impl Durak {
                 }
                 self.attacks.append(&mut attacks);
                 self.reveal_cards_or_update_attacks(idxs, effect)?;
+                self.displays.push(Display::PlayerAction {
+                    addr: sender,
+                    action: act,
+                });
             }
             Action::CoAttack { cards } => {
+                let l = cards.len();
+                if self.attack_space < l {
+                    Err(Error::NoAttackSpace(self.attack_space, l))?
+                }
                 if !self.can_attack()? {
                     Err(Error::CantAttack)?
                 }
@@ -697,6 +735,10 @@ impl Durak {
                 }
                 self.attacks.append(&mut attacks);
                 self.reveal_cards_or_update_attacks(idxs, effect)?;
+                self.displays.push(Display::PlayerAction {
+                    addr: sender,
+                    action: act,
+                });
             }
             Action::Defend { card, target } => {
                 if !self.can_defend()? {
@@ -714,6 +756,10 @@ impl Durak {
                 let a = self.get_attack_mut(target)?;
                 a.close(&card)?;
                 self.reveal_cards_or_update_attacks(vec![card.idx], effect)?;
+                self.displays.push(Display::PlayerAction {
+                    addr: sender,
+                    action: act,
+                });
             }
             Action::Forward { card } => {
                 // Conditions for forward
@@ -740,6 +786,10 @@ impl Durak {
                 self.rotate_roles(false)?;
 
                 self.reveal_cards_or_update_attacks(vec![card.idx], effect)?;
+                self.displays.push(Display::PlayerAction {
+                    addr: sender,
+                    action: act,
+                });
             }
             Action::Take => {
                 let def = self.get_player_by_role_mut(Role::Defender)?;
@@ -757,6 +807,10 @@ impl Durak {
                 } else {
                     self.end_round(true, effect)?
                 }
+                self.displays.push(Display::PlayerAction {
+                    addr: sender,
+                    action: act,
+                });
             }
             Action::Beated => {
                 let att = self.get_player_by_role_mut(Role::Attacker)?;
@@ -767,6 +821,10 @@ impl Durak {
                     Err(Error::UnconfirmedCard)?
                 }
                 self.end_round(false, effect)?;
+                self.displays.push(Display::PlayerAction {
+                    addr: sender,
+                    action: act,
+                });
             }
         };
         Ok(())
