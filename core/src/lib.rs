@@ -81,8 +81,9 @@ fn get_deck() -> RandomSpec {
 impl GameHandler for Durak {
     type Checkpoint = DurakCheckpoint;
 
-    fn init_state(_effect: &mut Effect, init_account: InitAccount) -> HandleResult<Self> {
+    fn init_state(effect: &mut Effect, init_account: InitAccount) -> HandleResult<Self> {
         let a: DurakAccount = init_account.data()?;
+        effect.allow_exit(true);
         Ok(Self {
             num_of_players: a.num_of_players as usize,
             bet_amount: a.bet_amount,
@@ -142,6 +143,7 @@ impl GameHandler for Durak {
             Event::Leave { player_addr } => {
                 self.players.remove(&player_addr);
                 effect.settle(Settle::eject(&player_addr));
+                effect.checkpoint();
             }
             Event::ActionTimeout { player_addr } => {
                 if self.stage == Stage::Acting {
