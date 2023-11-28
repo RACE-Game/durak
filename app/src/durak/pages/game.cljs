@@ -10,7 +10,10 @@
             [durak.utils :as u]
             [durak.types :as types]))
 
-(def deck-len 36)
+(def deck-len
+  (if goog.DEBUG
+    20
+    36))
 
 (defn- clear-ux []
   (re-frame/dispatch [::ux/unset ::sels])
@@ -31,6 +34,23 @@
   (->> (vals players)
        (sort-by :position)
        (u/rotate-by #(= curr-position (:position %)))))
+
+(def kind->value {"2" 2, "3" 3, "4" 4, "5" 5, "6" 6, "7" 7, "8" 8, "9" 9, "t" 10, "j" 11, "q" 12, "k" 13, "a" 14})
+(defn- sort-card [c]
+  (when c
+    [(subs c 0 1) (kind->value (subs c 1 2))]))
+
+(defn- cover? [card target trump]
+  (let [trump-suit (types/suit trump)
+        target-is-trump-suit? (= trump-suit (types/suit target))
+        card-is-trump-suit? (= trump-suit (types/suit card))
+        same-suit? (= (types/suit card) (types/suit target))
+        greater-than? (> (kind->value (types/kind card))
+                         (kind->value (types/kind target)))]
+    (cond
+      (and same-suit? greater-than?) true
+      (and card-is-trump-suit? (not target-is-trump-suit?)) true
+      :else false)))
 
 (defonce countdown-trigger (r/atom false))
 (js/setInterval #(swap! countdown-trigger not) 10)
@@ -58,7 +78,7 @@
     [:i.fa-sharp.fa-regular.fa-bars {:class "mr-2"}] "durak.sol"]
    [:div {:class "uppercase"} (name stage)]])
 
-(defn render-avatar [profile & [player player-action]]
+(defn render-avatar [profile & [player player-action flip]]
   (let [{:keys [nick pfp]} profile
         {:keys [role]} player
         nft @(re-frame/subscribe [::helper/nft-by-addr pfp])
@@ -72,24 +92,24 @@
                            :role/co-attacker "ring ring-accent"
                            ""))}
        [:img {:src (:image nft)}]]]
-     [:div {:class "absolute right-full top-0 w-32"}
-      (when player-action
-        (case (types/action-type (:action player-action))
-          :action/beated [:div {:class "chat chat-end"} [:div {:class "chat-bubble chat-bubble-primary"} "It's beated"]]
-          :action/take [:div {:class "chat chat-end"} [:div {:class "chat-bubble chat-bubble-secondary"} "I'm taking"]]
-          :action/forward [:div {:class "chat chat-end"} [:div {:class "chat-bubble chat-bubble-accent"} "I'm forwarding"]]
-          nil))]
+     [:div {:class (if flip
+                     "absolute left-full top-0 w-40"
+                     "absolute right-full top-0 w-40")}
+      (let [css (if flip
+                  "chat chat-start"
+                  "chat chat-end")]
+        (when player-action
+          (case (types/action-type (:action player-action))
+            :action/beated [:div {:class css} [:div {:class "chat-bubble chat-bubble-primary"} "It's beated"]]
+            :action/take [:div {:class css} [:div {:class "chat-bubble chat-bubble-secondary"} "I'm taking"]]
+            :action/forward [:div {:class css} [:div {:class "chat-bubble chat-bubble-accent"} "I'm forwarding"]]
+            nil)))]
      (case role
        :role/attacker [:div {:class (str tag-css "bg-primary text-primary-content")} "ATT"]
        :role/defender [:span {:class (str tag-css "bg-secondary text-secondary-content")} "DEF"]
        :role/co-attacker [:span {:class (str tag-css "bg-accent text-accent-content")} "COATT"]
        nil)
      [:div {:class "mt-1 text-center text-ellipsis text-xs w-40 overflow-hidden whitespace-nowrap text-neutral"} nick]]))
-
-(def kind->value {"2" 2, "3" 3, "4" 4, "5" 5, "6" 6, "7" 7, "8" 8, "9" 9, "t" 10, "j" 11, "q" 12, "k" 13, "a" 14})
-(defn- sort-card [c]
-  (when c
-    [(subs c 0 1) (kind->value (subs c 1 2))]))
 
 (defn render-action-panel-attacker [state player profile player-action]
   (let [decryption          @(re-frame/subscribe [::client/decryption (:random-id state)])
@@ -114,7 +134,7 @@
                                    (or (empty? sels)
                                        (= (types/kind (first sels)) (types/kind card)))))
         all-attacks-closed  (every? (comp #{:attack/closed} types/attack-type) attacks)]
-    [:div {:class "p-8 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
+    [:div {:class "p-4 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
      [:div {:class "h-16 flex justify-center items-center"}
       (when (seq sels)
         [:button {:class    "btn btn-accent"
@@ -122,7 +142,7 @@
                               (re-frame/dispatch [::game/attack sels])
                               (clear-ux))}
          "Attack"])]
-     [:div {:class "h-44 flex justify-center items-center gap-2"}
+     [:div {:class "h-44 flex justify-center items-center gap-2 pr-12"}
       (for [[c card-idx] cards
             :when        c
             :let         [card (types/->Card card-idx c)
@@ -178,16 +198,21 @@
                                        (get attack-kinds (types/kind card)))
                                    (or (empty? sels)
                                        (= (types/kind (first sels)) (types/kind card)))))
+        wait-first-attack   (empty? attacks)
         all-attacks-closed  (every? (comp #{:attack/closed} types/attack-type) attacks)]
-    [:div {:class "p-8 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
+    [:div {:class "p-4 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
      [:div {:class "h-26 flex justify-center items-center"}
       (when (seq sels)
-        [:button {:class    "btn btn-accent"
-                  :on-click (fn []
-                              (re-frame/dispatch [::game/co-attack sels])
-                              (clear-ux))}
-         "Attack"])]
-     [:div {:class "h-44 flex justify-center items-center gap-2"}
+        (if wait-first-attack
+          [:button {:class    "btn btn-ghost"
+                    :disabled true}
+           "Wait first attack"]
+          [:button {:class    "btn btn-accent"
+                    :on-click (fn []
+                                (re-frame/dispatch [::game/co-attack sels])
+                                (clear-ux))}
+           "Attack"]))]
+     [:div {:class "h-44 flex justify-center items-center gap-2 pr-12"}
       (for [[c card-idx] cards
             :when        c
             :let         [card (types/->Card card-idx c)
@@ -227,28 +252,30 @@
 (defn render-action-panel-defender [state player profile player-action]
   (let [decryption              @(re-frame/subscribe [::client/decryption (:random-id state)])
         sel                     @(re-frame/subscribe [::ux/get ::sel])
-        {:keys [attacks stage]} state
+        {:keys [attacks stage trump]} state
         {:keys [card-idxs]}     player
         cards                   (->> (map #(vector (get decryption %) %) card-idxs)
                                      (sort-by (comp sort-card first)))
         end-of-round            (= :stage/end-of-round stage)
         can-forward             (and (seq attacks)
-                                     sel
-                                     (every? (comp #{:attack/open} types/attack-type) attacks)
-                                     (apply = (map types/kind (conj (map :open attacks) sel))))
+                                     (every? (comp #{:attack/open} types/attack-type) attacks))
         all-attacks-closed      (every? (comp #{:attack/closed} types/attack-type) attacks)
+        opens                   (map :open (filter (comp #{:attack/open} types/attack-type) attacks))
+        cover-any-attack?       (fn [c] (some #(or (cover? c % trump)
+                                                   (and can-forward (= (types/kind c) (types/kind (first opens))))) opens))
         no-confirming-attack    (every? (comp #{:attack/open :attack/closed} types/attack-type) attacks)]
-    [:div {:class "p-8 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
+    [:div {:class "p-4 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
      [:div {:class "h-20 flex justify-center items-center"}
-      (when can-forward
+      (when (and sel (not end-of-round) can-forward (= (types/kind sel) (types/kind (:open (first attacks)))))
         [:button {:class    "btn btn-accent"
                   :on-click (fn []
                               (re-frame/dispatch [::game/forward sel])
                               (clear-ux))}
          "Forward"])]
-     [:div {:class "h-44 flex justify-center items-center gap-2"}
+     [:div {:class "h-44 flex justify-center items-center gap-2 pr-12"}
       (for [[c card-idx] cards
             :let         [card (types/->Card card-idx c)
+                          cover-any? (cover-any-attack? card)
                           selected? (= sel card)]]
         ^{:key card-idx}
         [card/card c
@@ -259,8 +286,11 @@
                 selected?
                 "-translate-y-8 cursor-pointer"
 
+                cover-any?
+                "hover:-translate-y-2 cursor-pointer transition-all"
+
                 :else
-                "hover:-translate-y-2 brightness-75 cursor-pointer transition-all")
+                "brightness-75 transition-all")
          :on-click (cond
                      end-of-round
                      nil
@@ -268,7 +298,7 @@
                      selected?
                      #(re-frame/dispatch [::ux/unset ::sel])
 
-                     :else
+                     cover-any?
                      #(re-frame/dispatch [::ux/set ::sel card]))])]
      [:div {:class "h-24 flex justify-center items-center gap-4"}
       [render-avatar profile player player-action]
@@ -288,18 +318,6 @@
     :role/defender [render-action-panel-defender state player profiles player-action]
     :role/co-attacker [render-action-panel-co-attacker state player profiles player-action]
     nil))
-
-(defn- cover? [card target trump]
-  (let [trump-suit (types/suit trump)
-        target-is-trump-suit? (= trump-suit (types/suit target))
-        card-is-trump-suit? (= trump-suit (types/suit card))
-        same-suit? (= (types/suit card) (types/suit target))
-        greater-than? (> (kind->value (types/kind card))
-                         (kind->value (types/kind target)))]
-    (cond
-      (and same-suit? greater-than?) true
-      (and card-is-trump-suit? (not target-is-trump-suit?)) true
-      :else false)))
 
 (defn render-attack [i attack trump role]
   [:div {:class "relative"}
@@ -342,12 +360,17 @@
   (let [{:keys [addr card-idxs]} player]
     [:div {:class (str "absolute  flex flex-col gap-4 items-center "
                        (case rel-pos
-                         0 "bottom-8 left-1/2 -translate-x-1/2"
-                         1 "top-8 left-8"
-                         2 "top-8 left-1/2 -translate-x-1/2"
-                         3 "top-8 right-8"))}
-     [render-avatar (get profiles addr) player player-action]
-     [card/deck (count card-idxs) 18]]))
+                         0 "bottom-4 left-1/2 -translate-x-1/2"
+                         1 "top-4 left-4"
+                         2 "top-4 left-1/2 -translate-x-1/2"
+                         3 "top-4 right-4"))}
+     (if (= rel-pos 0)
+       [:<>
+        [card/deck (count card-idxs) 18]
+        [render-avatar (get profiles addr) player player-action]]
+       [:<>
+        [render-avatar (get profiles addr) player player-action (= 1 rel-pos)]
+        [card/deck (count card-idxs) 18]])]))
 
 (defn render-winner-popup [state profiles]
   (let [{:keys [stage players]} state]
@@ -409,6 +432,7 @@
                             (group-by types/display-type))
         {:display/keys [deal-cards player-action]} display-map
         curr-player-action (first (filter #(= (:addr curr-player) (:addr %)) player-action))]
+    (js/console.log "deal-cards: " deal-cards)
     [:div {:class "min-h-screen w-full bg-cover bg-center bg-base-300 flex flex-col items-stretch"}
      [playing-header stage]
      [:div {:class "flex-1 relative"}

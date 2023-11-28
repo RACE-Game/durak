@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use borsh::{BorshDeserialize, BorshSerialize};
 use error::Error;
-use misc::{Action, Attack, Card, Player, Stage, Display};
+use misc::{Action, Attack, Card, Display, Player, Role, Stage, DECK_LEN};
 use race_api::prelude::*;
 use race_proc_macro::game_handler;
 
@@ -32,50 +32,53 @@ pub struct Durak {
     pub bet_amount: u64,
     pub timeout: u64,
     pub attack_space: usize,
+    pub beated_addrs: Vec<String>,
     pub displays: Vec<Display>,
 }
 
 fn get_deck() -> RandomSpec {
-    RandomSpec::ShuffledList {
-        options: vec![
-            "ha".into(),
-            "h6".into(),
-            "h7".into(),
-            "h8".into(),
-            "h9".into(),
-            "ht".into(),
-            "hj".into(),
-            "hq".into(),
-            "hk".into(),
-            "sa".into(),
-            "s6".into(),
-            "s7".into(),
-            "s8".into(),
-            "s9".into(),
-            "st".into(),
-            "sj".into(),
-            "sq".into(),
-            "sk".into(),
-            "da".into(),
-            "d6".into(),
-            "d7".into(),
-            "d8".into(),
-            "d9".into(),
-            "dt".into(),
-            "dj".into(),
-            "dq".into(),
-            "dk".into(),
-            "ca".into(),
-            "c6".into(),
-            "c7".into(),
-            "c8".into(),
-            "c9".into(),
-            "ct".into(),
-            "cj".into(),
-            "cq".into(),
-            "ck".into(),
-        ],
-    }
+    let options = vec![
+        "sa".into(),
+        "ha".into(),
+        "da".into(),
+        "ca".into(),
+        "sk".into(),
+        "hk".into(),
+        "dk".into(),
+        "ck".into(),
+        "sq".into(),
+        "hq".into(),
+        "dq".into(),
+        "cq".into(),
+        "sj".into(),
+        "hj".into(),
+        "dj".into(),
+        "cj".into(),
+        "st".into(),
+        "ht".into(),
+        "dt".into(),
+        "ct".into(),
+        "s9".into(),
+        "h9".into(),
+        "d9".into(),
+        "c9".into(),
+        "s8".into(),
+        "h8".into(),
+        "d8".into(),
+        "c8".into(),
+        "s7".into(),
+        "h7".into(),
+        "d7".into(),
+        "c7".into(),
+        "s6".into(),
+        "h6".into(),
+        "d6".into(),
+        "c6".into(),
+    ]
+    .into_iter()
+    .take(DECK_LEN)
+    .collect();
+    RandomSpec::ShuffledList { options }
 }
 
 impl GameHandler for Durak {
@@ -145,18 +148,23 @@ impl GameHandler for Durak {
                 effect.settle(Settle::eject(&player_addr));
                 effect.checkpoint();
             }
-            Event::ActionTimeout { player_addr } => {
+            Event::ActionTimeout { .. } => {
                 if self.stage == Stage::Acting {
-                    let p = self
-                        .players
-                        .get(&player_addr)
-                        .ok_or(HandleError::InvalidPlayer)?;
-                    if p.is_attacker() {
-                        self.displays.push(Display::PlayerAction { addr: player_addr, action: Action::Beated });
+                    if self.attacks.is_empty() || self.attacks.iter().all(Attack::is_closed) {
+                        let att = self.get_player_by_role(Role::Attacker)?;
+                        self.displays.push(Display::PlayerAction {
+                            addr: att.addr(),
+                            action: Action::Beated,
+                        });
+                        self.end_round(false, effect)?;
                     } else {
-                        self.displays.push(Display::PlayerAction { addr: player_addr, action: Action::Take });
+                        let def = self.get_player_by_role(Role::Defender)?;
+                        self.displays.push(Display::PlayerAction {
+                            addr: def.addr(),
+                            action: Action::Take,
+                        });
+                        self.end_round(true, effect)?;
                     }
-                    self.end_round(!p.is_attacker(), effect)?;
                 } else if self.stage == Stage::EndOfRound {
                     self.end_round(true, effect)?;
                 } else {

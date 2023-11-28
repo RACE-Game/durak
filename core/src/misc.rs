@@ -3,7 +3,8 @@ use std::mem::{replace, swap};
 use crate::{error::Error, Durak};
 use race_api::prelude::*;
 
-const DECK_LEN: usize = 36;
+// const DECK_LEN: usize = 36;
+pub const DECK_LEN: usize = 20;
 const TRUMP_IDX: usize = DECK_LEN - 1;
 const MAX_ATTACK_COUNT: usize = 6;
 const MIN_HAND_CARD_COUNT: usize = 6;
@@ -55,7 +56,7 @@ impl Card {
     }
 }
 
-#[derive(Debug, BorshSerialize, BorshDeserialize, PartialEq, Eq)]
+#[derive(Debug, BorshSerialize, BorshDeserialize, PartialEq, Eq, Copy, Clone)]
 pub enum Role {
     Attacker,
     Defender,
@@ -113,6 +114,9 @@ impl Player {
             role: None,
             rank: None,
         }
+    }
+    pub fn addr(&self) -> String {
+        self.addr.clone()
     }
     pub fn take_card(&mut self, card_idx: usize) -> HandleResult<usize> {
         if let Some(p) = self.card_idxs.iter().position(|i| *i == card_idx) {
@@ -261,6 +265,7 @@ impl Durak {
         self.timeout = 0;
         self.attack_space = 0;
         self.displays.clear();
+        self.beated_addrs.clear();
         effect.allow_exit(true);
     }
 
@@ -332,10 +337,20 @@ impl Durak {
             if self.num_of_players == 2 {
                 Role::Attacker
             } else {
-                Role::CoAttacker
+                [Role::CoAttacker, Role::Attacker]
+                    .into_iter()
+                    .find(|r| self.has_role_player(*r))
+                    .ok_or(Error::CantFindNextAttacker)?
             }
         } else {
-            Role::Defender
+            if self.num_of_players == 2 {
+                Role::Defender
+            } else {
+                [Role::Defender, Role::CoAttacker]
+                    .into_iter()
+                    .find(|r| self.has_role_player(*r))
+                    .ok_or(Error::CantFindNextAttacker)?
+            }
         };
         let mut players_in_order: Vec<&mut Player> = self
             .players_in_acting_order_mut(role)?
@@ -381,6 +396,13 @@ impl Durak {
             .iter()
             .flat_map(|a| a.card_refs())
             .find(|c| c.is_same_kind(card))
+            .is_some()
+    }
+
+    pub fn has_role_player(&self, role: Role) -> bool {
+        self.players
+            .values()
+            .find(|p| p.role.as_ref().is_some_and(|p| p.eq(&role)))
             .is_some()
     }
 
@@ -447,10 +469,6 @@ impl Durak {
                     let p = self.get_player_by_role(Role::Attacker)?;
                     effect.action_timeout(&p.addr, END_OF_ROUND_TIMEOUT_MS);
                     self.timeout = effect.timestamp() + END_OF_ROUND_TIMEOUT_MS;
-                } else if self.attacks.iter().any(Attack::is_open) {
-                    let p = self.get_player_by_role(Role::Defender)?;
-                    effect.action_timeout(&p.addr, ACT_TIMEOUT_MS);
-                    self.timeout = effect.timestamp() + ACT_TIMEOUT_MS;
                 } else {
                     let p = self.get_player_by_role(Role::Attacker)?;
                     effect.action_timeout(&p.addr, ACT_TIMEOUT_MS);
@@ -629,6 +647,7 @@ impl Durak {
         self.update_escaped_players()?;
         self.maybe_end_game(effect)?;
         self.set_timeout_or_end_round(effect)?;
+        self.beated_addrs.clear();
         Ok(())
     }
 
@@ -654,6 +673,7 @@ impl Durak {
         let mut deck_offset = self.deck_offset;
         let random_id = self.random_id;
         let players = self.players_in_acting_order_mut(Role::Attacker)?;
+        let mut displays = vec![];
         for p in players.into_iter() {
             let l = p.card_idxs.len();
             if l < MIN_HAND_CARD_COUNT {
@@ -661,6 +681,10 @@ impl Durak {
                 let new_offset = (deck_offset + cnt).min(DECK_LEN - 1);
                 let mut assign_idxs: Vec<usize> = (deck_offset..new_offset).collect();
                 effect.assign(random_id, &p.addr, assign_idxs.clone());
+                displays.push(Display::DealCadrs {
+                    addr: p.addr.clone(),
+                    card_idxs: assign_idxs.clone(),
+                });
                 p.card_idxs.append(&mut assign_idxs);
                 deck_offset = new_offset;
                 if deck_offset == DECK_LEN - 1 {
@@ -668,6 +692,7 @@ impl Durak {
                 }
             }
         }
+        self.displays.append(&mut displays);
         self.deck_offset = deck_offset;
         self.stage = Stage::Dealing;
         Ok(())
@@ -719,7 +744,7 @@ impl Durak {
                 if !self.can_attack()? {
                     Err(Error::CantAttack)?
                 }
-                if cards.iter().any(|c| self.is_valid_attack_card(c)) {
+                if !cards.iter().any(|c| self.is_valid_attack_card(c)) {
                     Err(Error::NotValidAttackCard)?
                 }
                 let coatt = self.get_player_by_role_mut(Role::CoAttacker)?;
@@ -781,6 +806,8 @@ impl Durak {
                 let idx = def.take_card(card.idx)?;
                 self.attacks.push(Attack::new(idx));
 
+                // The defender may escape due to forward
+                self.update_escaped_players()?;
                 // Forward roles, the current defender becomes attacker
                 // and others take the roles by their accordingly
                 self.rotate_roles(false)?;
@@ -813,14 +840,29 @@ impl Durak {
                 });
             }
             Action::Beated => {
-                let att = self.get_player_by_role_mut(Role::Attacker)?;
-                if att.addr.ne(&sender) {
-                    Err(Error::PlayerIsNotAttacker)?
+                if self.beated_addrs.contains(&sender) {
+                    Err(Error::DuplicatedBeated)?
                 }
                 if !self.is_all_attacks_confirmed() {
                     Err(Error::UnconfirmedCard)?
                 }
-                self.end_round(false, effect)?;
+                if !self.has_role_player(Role::CoAttacker) {
+                    let att = self.get_player_by_role(Role::Attacker)?;
+                    if att.addr.ne(&sender) {
+                        Err(Error::PlayerIsNotAttacker)?
+                    }
+                    self.end_round(false, effect)?;
+                } else {
+                    let att = self.get_player_by_role(Role::Attacker)?;
+                    let coatt = self.get_player_by_role(Role::CoAttacker)?;
+                    if att.addr.ne(&sender) && coatt.addr.ne(&sender) {
+                        Err(Error::PlayerIsNotAttacker)?
+                    }
+                    self.beated_addrs.push(sender.clone());
+                    if self.beated_addrs.len() == 2 {
+                        self.end_round(false, effect)?;
+                    }
+                }
                 self.displays.push(Display::PlayerAction {
                     addr: sender,
                     action: act,

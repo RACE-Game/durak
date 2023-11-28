@@ -119,4 +119,5 @@
    ^:u64 bet-amount
    ^:u64 timeout
    ^:usize attack-space
+   ^{:vec :string} beated
    ^{:vec {:enum Display}} displays])

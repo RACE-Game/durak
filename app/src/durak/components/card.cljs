@@ -13,15 +13,17 @@
 
 (defn deck [n base-offset]
   (let [w (format "calc(5rem + (%s * %spx))" (inc n) base-offset)]
-    [:div {:class "h-[10.5rem] relative"
+    [:div {:class "h-[7.5rem] relative"
            :style {:width w}}
      (when (pos? n)
        (for [i (range n)]
          ^{:key i}
          [:div {:class "absolute top-0 left-0"
-                :style {:z-index (- 52 i)
+                :style {:z-index (inc i)
                         :transform (str "translateX(" (* i base-offset) "px)")}}
-          [card-back]]))]))
+          [:div
+           {:id (when (= i (dec n)) "deal-origin")}
+           [card-back]]]))]))
 
 (defn parse-kind-offset
   [kind]

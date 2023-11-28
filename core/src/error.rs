@@ -46,6 +46,10 @@ pub enum Error {
     InvalidForwardCard,
     #[error("No attack space, space: {0}, attacks: {1}")]
     NoAttackSpace(usize, usize),
+    #[error("Duplicated beated action")]
+    DuplicatedBeated,
+    #[error("Internal: Cannot find next attacker")]
+    CantFindNextAttacker,
 }
 
 impl From<Error> for race_api::error::HandleError {
