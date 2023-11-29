@@ -1,3 +1,8 @@
+build: build-app build-core
+
+build-app:
+    (cd app; npm run build)
+
 release-core: build-core optimize-core
 
 optimize-core:

@@ -63,6 +63,12 @@
           [:i.fa-sharp.fa-regular.fa-hourglass]
           [:span {:style {"--value" secs}}]]]))))
 
+(defn loading-header []
+  [:div {:class "navbar bg-base-200 justify-between gap-8"}
+   [:a {:class "btn btn-ghost text-xl"
+        :href "#/"}
+    [:i.fa-sharp.fa-regular.fa-bars {:class "mr-2"}] "durak.sol"]])
+
 (defn waiting-header []
   [:div {:class "navbar bg-base-200 justify-between gap-8"}
    [:a {:class "btn btn-ghost text-xl"
@@ -107,7 +113,8 @@
        :role/defender [:span {:class (str tag-css "bg-secondary text-secondary-content")} "DEF"]
        :role/co-attacker [:span {:class (str tag-css "bg-accent text-accent-content")} "COATT"]
        nil)
-     [:div {:class "mt-1 text-center text-ellipsis text-xs w-40 overflow-hidden whitespace-nowrap text-neutral"} nick]]))
+     (when player
+       [:div {:class "mt-1 text-center text-ellipsis text-xs w-40 overflow-hidden whitespace-nowrap text-neutral"} nick])]))
 
 (defn render-action-panel-attacker [state player profile player-action]
   (let [decryption          @(re-frame/subscribe [::client/decryption (:random-id state)])
@@ -395,6 +402,13 @@
       [:span {:class "countdown font-mono text-3xl"}
        [:span {:style {"--value" n}}]]]]))
 
+(defn render-loading-page []
+  [:div {:class "min-h-screen w-full bg-cover bg-center bg-base-300 flex flex-col items-stretch"}
+   [waiting-header]
+   [:div {:class "hero flex-1"}
+    [:div {:class "hero-content text-xl flex-col"}
+     [:div [:span {:class "loading loading-dots loading-lg"}]]]]])
+
 (defn render-waiting-page [{:keys [profiles addr state confirm-players]}]
   (let [{:keys [players num-of-players]} state]
     [:div {:class "min-h-screen w-full bg-cover bg-center bg-base-300 flex flex-col items-stretch"}
@@ -409,12 +423,15 @@
           ^{:key addr}
           [:div {:class "border rounded-sm w-96 p-4 flex justify-between"}
            [render-avatar (get profiles addr)]
-           [:div (u/format-addr addr)]])
+           [:div {:class "flex flex-col justify-between"}
+            [:div (u/format-addr addr)]
+            [:div {:class "text-neutral text-green-700 text-right"} "Ready"]]])
         (for [[addr _] confirm-players]
           ^{:key addr}
           [:div {:class "border rounded-sm w-96 p-4 flex justify-between"}
-           [render-avatar {:nick (u/format-addr addr)}]
-           [:div (u/format-addr addr)]])]
+           [:div {:class "w-24 h-24 rounded-full bg-base-300 brightness-75"}]
+           [:div (u/format-addr addr)]
+           [:div {:class "text-neutral text-warning text-right"} "Confirming"]])]
        (when-not (get players addr)
          [:button {:class    "btn btn-primary px-8"
                    :on-click on-join}
@@ -464,6 +481,10 @@
             displays @displays
             confirm-players @confirm-players]
         (js/console.log "confirm-players: " confirm-players)
-        (if (or (nil? state) (= :stage/waiting (:stage state)))
+        (cond
+          (nil? state)
+          [render-loading-page]
+          (= :stage/waiting (:stage state))
           [render-waiting-page {:addr addr, :profiles profiles, :state state, :confirm-players confirm-players}]
+          :else
           [render-playing-page {:addr addr, :profiles profiles, :state state, :displays displays}])))))

@@ -16,5 +16,5 @@
 (def chain->reg-addrs
   "The mapping from chain to registration addresses."
   {:chain/facade         ["DEFAULT_REGISTRATION"]
-   :chain/solana-mainnet ["8gXw3wt7qSjsagjeYvncA4LvE9ZixixFvvo35kaxwnRZ"]
+   :chain/solana-mainnet ["8Qetna8YbgcMPz5ujRYt9cYoELEQUNQLnQk8EyXSk11m"]
    :chain/solana-local   [""]})
