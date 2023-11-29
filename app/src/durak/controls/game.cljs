@@ -7,13 +7,14 @@
    [durak.controls.wallet :as-alias wallet]
    [durak.types :as types]
    [durak.utils :as u]
-   [re-frame.core :as re-frame]))
+   [re-frame.core :as re-frame]
+   [cljs-bean.core :refer [->clj]]))
 
 ;;; Handlers
 
 (defn on-event [ctx state-vec ^js event]
   (let [state               (deserialize types/->DurakState state-vec)
-        {:keys [random-id displays]} state]
+        {:keys [random-id displays players]} state]
     (let [{:keys [players]} (u/bean ctx)]
       (doseq [p     players
               :let  [{:keys [profile]} (u/bean p)]
@@ -33,6 +34,8 @@
       (case (.kind event)
         "GameStart"
         (re-frame/dispatch [::client/clear-decryptions])
+        "Sync"
+        (re-frame/dispatch [::remove-confirm-players-by-addrs (keys players)])
         "SecretsReady"
         (when (pos? random-id)
           (re-frame/dispatch [::client/decrypt {:random-id  random-id
@@ -45,7 +48,12 @@
   (js/console.log "msg: " msg))
 
 (defn on-tx-state [tx-state]
-  (js/console.log "tx-state: " tx-state))
+  (js/console.log "tx-state: " tx-state)
+  (let [confirm-players (mapv u/bean (aget tx-state "confirmPlayers"))
+        access-version (aget tx-state "accessVersion")]
+    (if confirm-players
+      (re-frame/dispatch [::add-confirm-players confirm-players])
+      (re-frame/dispatch [::remove-confirm-players-by-access-version access-version]))))
 
 (defn on-conn-state [conn-state]
   (js/console.log "conn-state: " conn-state))
@@ -55,6 +63,8 @@
 (re-frame/reg-sub ::state :-> ::game-state)
 
 (re-frame/reg-sub ::displays :-> ::displays)
+
+(re-frame/reg-sub ::confirm-players :-> ::confirm-players)
 
 ;;; Events
 
@@ -143,3 +153,29 @@
   (fn beated
     [_ _]
     {:dispatch [::client/submit-event (types/->GameEvent (types/->Beated))]}))
+
+(re-frame/reg-event-db
+  ::add-confirm-players
+  [re-frame/trim-v]
+  (fn [db [confirm-players]]
+    (js/console.log "confirm-players: " confirm-players)
+    (let [confirm-players (->> confirm-players
+                               (map (juxt :addr identity))
+                               (into {}))]
+      (update db ::confirm-players merge confirm-players))))
+
+(re-frame/reg-event-db
+  ::remove-confirm-players-by-addrs
+  [re-frame/trim-v]
+  (fn [db [addrs]]
+    (js/console.log "addrs: " addrs)
+    (update db ::confirm-players #(apply dissoc % addrs))))
+
+(re-frame/reg-event-db
+  ::remove-confirm-players-by-access-version
+  [re-frame/trim-v]
+  (fn [db [access-version]]
+    (let [confirm-players (->> (::confirm-players db)
+                               (remove #(<= access-version (:access-version (val %))))
+                               (into {}))]
+      (assoc db ::confirm-players confirm-players))))

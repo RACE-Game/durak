@@ -10,10 +10,8 @@
             [durak.utils :as u]
             [durak.types :as types]))
 
-(def deck-len
-  (if goog.DEBUG
-    20
-    36))
+(def deck-len 36)
+;; (def deck-len 20)
 
 (defn- clear-ux []
   (re-frame/dispatch [::ux/unset ::sels])
@@ -397,7 +395,7 @@
       [:span {:class "countdown font-mono text-3xl"}
        [:span {:style {"--value" n}}]]]]))
 
-(defn render-waiting-page [{:keys [profiles addr state]}]
+(defn render-waiting-page [{:keys [profiles addr state confirm-players]}]
   (let [{:keys [players num-of-players]} state]
     [:div {:class "min-h-screen w-full bg-cover bg-center bg-base-300 flex flex-col items-stretch"}
      [waiting-header]
@@ -411,6 +409,11 @@
           ^{:key addr}
           [:div {:class "border rounded-sm w-96 p-4 flex justify-between"}
            [render-avatar (get profiles addr)]
+           [:div (u/format-addr addr)]])
+        (for [[addr _] confirm-players]
+          ^{:key addr}
+          [:div {:class "border rounded-sm w-96 p-4 flex justify-between"}
+           [render-avatar {:nick (u/format-addr addr)}]
            [:div (u/format-addr addr)]])]
        (when-not (get players addr)
          [:button {:class    "btn btn-primary px-8"
@@ -452,12 +455,15 @@
   (let [addr     (re-frame/subscribe [::wallet/addr])
         profiles (re-frame/subscribe [::helper/profiles-map])
         state    (re-frame/subscribe [::game/state])
-        displays (re-frame/subscribe [::game/displays])]
+        displays (re-frame/subscribe [::game/displays])
+        confirm-players (re-frame/subscribe [::game/confirm-players])]
     (fn []
       (let [state    @state
             profiles @profiles
             addr     @addr
-            displays @displays]
+            displays @displays
+            confirm-players @confirm-players]
+        (js/console.log "confirm-players: " confirm-players)
         (if (or (nil? state) (= :stage/waiting (:stage state)))
-          [render-waiting-page {:addr addr, :profiles profiles, :state state}]
+          [render-waiting-page {:addr addr, :profiles profiles, :state state, :confirm-players confirm-players}]
           [render-playing-page {:addr addr, :profiles profiles, :state state, :displays displays}])))))

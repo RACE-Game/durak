@@ -3,8 +3,8 @@ use std::mem::{replace, swap};
 use crate::{error::Error, Durak};
 use race_api::prelude::*;
 
-// const DECK_LEN: usize = 36;
-pub const DECK_LEN: usize = 20;
+pub const DECK_LEN: usize = 36;
+// pub const DECK_LEN: usize = 20;
 const TRUMP_IDX: usize = DECK_LEN - 1;
 const MAX_ATTACK_COUNT: usize = 6;
 const MIN_HAND_CARD_COUNT: usize = 6;
