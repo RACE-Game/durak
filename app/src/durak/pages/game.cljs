@@ -10,8 +10,8 @@
             [durak.utils :as u]
             [durak.types :as types]))
 
-;; (def deck-len 36)
-(def deck-len 16)
+(def deck-len 36)
+;; (def deck-len 16)
 
 (defn- clear-ux []
   (re-frame/dispatch [::ux/unset ::sels])
