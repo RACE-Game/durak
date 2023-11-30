@@ -3,15 +3,15 @@ use std::mem::{replace, swap};
 use crate::{error::Error, Durak};
 use race_api::prelude::*;
 
-pub const DECK_LEN: usize = 36;
-// pub const DECK_LEN: usize = 20;
+// pub const DECK_LEN: usize = 36;
+pub const DECK_LEN: usize = 16;
 const TRUMP_IDX: usize = DECK_LEN - 1;
 const MAX_ATTACK_COUNT: usize = 6;
 const MIN_HAND_CARD_COUNT: usize = 6;
 const MAX_NUM_OF_PLAYERS: usize = 4;
 const ACT_TIMEOUT_MS: u64 = 20_000;
 const RESET_TIMEOUT_MS: u64 = 30_000;
-const END_OF_ROUND_TIMEOUT_MS: u64 = 10_000;
+const END_OF_ROUND_TIMEOUT_MS: u64 = 5_000;
 
 fn kind_str_to_u8(k: &str) -> u8 {
     match k {
@@ -811,6 +811,14 @@ impl Durak {
                 // Forward roles, the current defender becomes attacker
                 // and others take the roles by their accordingly
                 self.rotate_roles(false)?;
+                let def = self.get_player_by_role(Role::Defender)?;
+
+                // Check if it's a valid forwarding
+                // The defender must have more cards than attacks'
+                if self.num_of_players - self.num_of_finished > 2
+                    && def.card_idxs.len() < self.attacks.iter().filter(|a| a.is_open_or_confirm_open()).count() {
+                    Err(Error::CantForward)?
+                }
 
                 self.reveal_cards_or_update_attacks(vec![card.idx], effect)?;
                 self.displays.push(Display::PlayerAction {

@@ -20,11 +20,12 @@
              :key->prop csk/->camelCaseString))
 
 (defn format-addr [addr]
-  (let [l (count addr)]
-    (str
-     (subs addr 0 4)
-     ".."
-     (subs addr (- l 4) l))))
+  (when addr
+    (let [l (count addr)]
+      (str
+       (subs addr 0 4)
+       ".."
+       (subs addr (- l 4) l)))))
 
 (defn parse-query-params
   "Parse URL parameters into a hashmap"

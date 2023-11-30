@@ -95,10 +95,8 @@
   [{:keys [^js app-helper succ-event addr] :as params}]
   {:pre [(some? app-helper)
          (string? addr)]}
-  (js/console.log "Get NFT" params)
   (a/go
     (when-let [nft (<p! (.getNft app-helper addr))]
-      (js/console.log "nft: " nft)
       (when succ-event
         (re-frame/dispatch [succ-event (->clj nft)])))))
 

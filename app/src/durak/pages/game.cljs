@@ -10,8 +10,8 @@
             [durak.utils :as u]
             [durak.types :as types]))
 
-(def deck-len 36)
-;; (def deck-len 20)
+;; (def deck-len 36)
+(def deck-len 16)
 
 (defn- clear-ux []
   (re-frame/dispatch [::ux/unset ::sels])
@@ -94,7 +94,7 @@
                            :role/attacker "ring ring-primary"
                            :role/defender "ring ring-secondary"
                            :role/co-attacker "ring ring-accent"
-                           ""))}
+                           "ring ring-neutral"))}
        [:img {:src (:image nft)}]]]
      [:div {:class (if flip
                      "absolute left-full top-0 w-40"
@@ -112,9 +112,9 @@
        :role/attacker [:div {:class (str tag-css "bg-primary text-primary-content")} "ATT"]
        :role/defender [:span {:class (str tag-css "bg-secondary text-secondary-content")} "DEF"]
        :role/co-attacker [:span {:class (str tag-css "bg-accent text-accent-content")} "COATT"]
-       nil)
-     (when player
-       [:div {:class "mt-1 text-center text-ellipsis text-xs w-40 overflow-hidden whitespace-nowrap text-neutral"} nick])]))
+       [:span {:class (str tag-css "bg-neutral")}])
+     [:div {:class "mt-1 text-center text-ellipsis text-xs w-40 overflow-hidden whitespace-nowrap text-neutral"}
+      (if nick nick "-")]]))
 
 (defn render-action-panel-attacker [state player profile player-action]
   (let [decryption          @(re-frame/subscribe [::client/decryption (:random-id state)])
@@ -317,12 +317,17 @@
                                   (clear-ux))}
           "Take"])]]]))
 
-(defn render-action-panel [state player profiles player-action]
+(defn render-action-panel-escaped [state player profile]
+  [:div {:class "p-4 absolute bottom-0 inset-x-0 flex flex-col items-stretch"}
+   [:div {:class "h-24 flex justify-center items-center gap-4"}
+    [render-avatar profile player]]])
+
+(defn render-action-panel [state player profile player-action]
   (case (:role player)
-    :role/attacker [render-action-panel-attacker state player profiles player-action]
-    :role/defender [render-action-panel-defender state player profiles player-action]
-    :role/co-attacker [render-action-panel-co-attacker state player profiles player-action]
-    nil))
+    :role/attacker [render-action-panel-attacker state player profile player-action]
+    :role/defender [render-action-panel-defender state player profile player-action]
+    :role/co-attacker [render-action-panel-co-attacker state player profile player-action]
+    [render-action-panel-escaped state player profile]))
 
 (defn render-attack [i attack trump role]
   [:div {:class "relative"}
@@ -398,9 +403,10 @@
         [card/card v])]
      [:div {:class "absolute top-0 left-8"}
       [card/deck n 6]]
-     [:div {:class "absolute w-16 text-center -top-10 left-32 z-[99] bg-base-200 rounded-full"}
-      [:span {:class "countdown font-mono text-3xl"}
-       [:span {:style {"--value" n}}]]]]))
+     (when (pos? n)
+       [:div {:class "absolute w-16 text-center -top-10 left-32 z-[99] bg-base-200 rounded-full"}
+        [:span {:class "countdown font-mono text-3xl"}
+         [:span {:style {"--value" n}}]]])]))
 
 (defn render-loading-page []
   [:div {:class "min-h-screen w-full bg-cover bg-center bg-base-300 flex flex-col items-stretch"}
@@ -480,7 +486,6 @@
             addr     @addr
             displays @displays
             confirm-players @confirm-players]
-        (js/console.log "confirm-players: " confirm-players)
         (cond
           (nil? state)
           [render-loading-page]
